@@ -79,6 +79,13 @@
     line-height: 1.7;
     overflow-wrap: anywhere;
   }
+  .card .by, .lb-caption .by {
+    margin-top: 4px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #999;
+  }
+  .lb-caption .by { display: inline; margin-left: 12px; }
   .empty {
     text-align: center;
     padding: 120px 20px;
@@ -154,7 +161,7 @@
   <button class="lb-btn lb-prev" id="lbPrev" aria-label="前へ">&#8592;</button>
   <button class="lb-btn lb-next" id="lbNext" aria-label="次へ">&#8594;</button>
   <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
-  <div class="lb-caption"><span id="lbTitle"></span></div>
+  <div class="lb-caption"><span id="lbTitle"></span><span class="by" id="lbBy"></span></div>
 </div>
 
 <script>
@@ -174,6 +181,18 @@
     .replace(/\s+/g, ' ')
     .trim();
   const imageUrl = file => 'images/' + encodeURIComponent(file);
+  const formatDate = ms => {
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate());
+  };
+  // "by 作者 · 更新日" のメタ行テキスト(どちらも無ければ null)
+  const metaText = item => {
+    const parts = [];
+    if (item.author) parts.push('by ' + item.author);
+    if (item.updated) parts.push(formatDate(item.updated));
+    return parts.length ? parts.join(' · ') : null;
+  };
 
   function sortedItems() {
     const items = [...state.items];
@@ -214,6 +233,13 @@
       title.textContent = displayName(item.file);
 
       card.append(img, title);
+      const meta = metaText(item);
+      if (meta) {
+        const by = document.createElement('div');
+        by.className = 'by';
+        by.textContent = meta;
+        card.appendChild(by);
+      }
       grid.appendChild(card);
     });
   }
@@ -255,6 +281,7 @@
     lbImg.src = imageUrl(item.file);
     lbImg.alt = displayName(item.file);
     lbTitle.textContent = displayName(item.file);
+    document.getElementById('lbBy').textContent = metaText(item) || '';
   }
 
   document.getElementById('lbClose').addEventListener('click', closeLightbox);
