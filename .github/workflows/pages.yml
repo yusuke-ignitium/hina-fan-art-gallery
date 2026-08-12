@@ -30,8 +30,6 @@ jobs:
       - name: Build images.json
         run: node tools/build-manifest.mjs
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
