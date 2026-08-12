@@ -20,19 +20,30 @@
     text-align: center;
   }
   header h1 {
-    font-size: clamp(22px, 4.6vw, 40px);
+    font-size: clamp(15px, 4.6vw, 40px);
     font-weight: 700;
     letter-spacing: 0.28em;
     text-indent: 0.28em; /* letter-spacing の右余白ぶんを相殺して中央に */
     white-space: nowrap;
   }
 
-  /* ---------- sort ---------- */
+  /* ---------- toolbar ---------- */
   .toolbar {
     display: flex;
-    justify-content: center;
-    gap: 28px;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 26px 20px 34px;
+  }
+  .toolbar .sorts { display: flex; gap: 28px; }
+  .submit-link {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #000;
+    text-decoration: none;
+    padding: 4px 2px;
+    border-bottom: 1px solid #000;
   }
   .sort-btn {
     background: none;
@@ -99,12 +110,19 @@
     position: fixed;
     inset: 0;
     background: rgba(255, 255, 255, 0.97);
-    display: none;
+    display: flex;
     flex-direction: column;
     z-index: 100;
     touch-action: pan-y;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0s linear 0.25s;
   }
-  .lightbox.open { display: flex; }
+  .lightbox.open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease;
+  }
   .lb-stage {
     flex: 1;
     display: flex;
@@ -150,8 +168,11 @@
 <header><h1>HINA FAN ART GALLERY</h1></header>
 
 <div class="toolbar" id="toolbar">
-  <button class="sort-btn" data-sort="new">NEWEST</button>
-  <button class="sort-btn" data-sort="old">OLDEST</button>
+  <div class="sorts">
+    <button class="sort-btn" data-sort="new">NEWEST</button>
+    <button class="sort-btn" data-sort="old">OLDEST</button>
+  </div>
+  <a class="submit-link" href="submit.html">SUBMIT</a>
 </div>
 
 <main class="grid" id="grid"></main>
@@ -275,15 +296,32 @@
     const items = state.lbItems;
     if (!items.length) return;
     state.current = (state.current + delta + items.length) % items.length;
-    showCurrent();
+    showCurrent(delta);
   }
-  function showCurrent() {
+  function applyCurrent_() {
     const item = state.lbItems[state.current];
     if (!item) return;
     lbImg.src = imageUrl(item.file);
     lbImg.alt = displayName(item.file);
     lbTitle.textContent = displayName(item.file);
     document.getElementById('lbBy').textContent = metaText(item) || '';
+  }
+  // direction: 1 = 次へ(左へ抜けて右から入る) / -1 = 前へ(逆) / 0 = アニメーションなし
+  function showCurrent(direction = 0) {
+    if (!direction) { applyCurrent_(); return; }
+    const OUT = 48 * direction;
+    lbImg.style.transition = 'transform 0.16s ease-in, opacity 0.16s ease-in';
+    lbImg.style.transform = 'translateX(' + -OUT + 'px)';
+    lbImg.style.opacity = '0';
+    setTimeout(() => {
+      applyCurrent_();
+      lbImg.style.transition = 'none';
+      lbImg.style.transform = 'translateX(' + OUT + 'px)';
+      void lbImg.offsetHeight; // reflow してから入りのトランジションを効かせる
+      lbImg.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      lbImg.style.transform = 'translateX(0)';
+      lbImg.style.opacity = '1';
+    }, 160);
   }
 
   document.getElementById('lbClose').addEventListener('click', closeLightbox);
