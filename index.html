@@ -196,8 +196,10 @@
 
   function sortedItems() {
     const items = [...state.items];
-    if (state.sort === 'new') items.sort((a, b) => b.created - a.created);
-    else items.sort((a, b) => a.created - b.created);
+    // created が同時刻(同一コミットで追加)でも順序が安定するようファイル名で追いソートし、
+    // OLDEST は NEWEST の完全な逆順にする
+    items.sort((a, b) => b.created - a.created || a.file.localeCompare(b.file, 'ja'));
+    if (state.sort === 'old') items.reverse();
     return items;
   }
 
