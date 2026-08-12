@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>HINA FAN ART GALLERY</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: #fff;
+    color: #000;
+    font-family: "Helvetica Neue", Helvetica, Arial, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    padding: 48px 20px 8px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: clamp(22px, 4.6vw, 40px);
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em; /* letter-spacing の右余白ぶんを相殺して中央に */
+    white-space: nowrap;
+  }
+
+  /* ---------- sort ---------- */
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    padding: 26px 20px 34px;
+  }
+  .sort-btn {
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #999;
+    cursor: pointer;
+    padding: 4px 2px;
+    border-bottom: 1px solid transparent;
+  }
+  .sort-btn.active {
+    color: #000;
+    border-bottom-color: #000;
+  }
+
+  /* ---------- grid ---------- */
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 44px 28px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 36px 20px; } }
+  @media (max-width: 480px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 30px 14px; padding: 0 14px 60px; } }
+
+  .card { text-align: center; }
+  .card .thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #f4f4f4;
+    cursor: pointer;
+    border: none;
+  }
+  .card .title {
+    margin-top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .card .like {
+    margin-top: 6px;
+    background: none;
+    border: none;
+    font: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: #000;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+  .card .like .heart { font-size: 13px; }
+  .empty {
+    text-align: center;
+    padding: 120px 20px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: #999;
+  }
+
+  /* ---------- lightbox ---------- */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.97);
+    display: none;
+    flex-direction: column;
+    z-index: 100;
+    touch-action: pan-y;
+  }
+  .lightbox.open { display: flex; }
+  .lb-stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 56px 64px 0;
+  }
+  .lb-stage img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .lb-caption {
+    text-align: center;
+    padding: 18px 20px 30px;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+  }
+  .lb-caption .like { margin-left: 14px; cursor: pointer; background: none; border: none; font: inherit; }
+  .lb-btn {
+    position: absolute;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #000;
+    font-size: 22px;
+    line-height: 1;
+    padding: 16px;
+    z-index: 101;
+  }
+  .lb-close { top: 8px; right: 8px; }
+  .lb-prev { left: 4px; top: 50%; transform: translateY(-50%); }
+  .lb-next { right: 4px; top: 50%; transform: translateY(-50%); }
+  @media (max-width: 600px) {
+    .lb-stage { padding: 48px 12px 0; }
+    .lb-prev, .lb-next { display: none; } /* モバイルはスワイプで操作 */
+  }
+</style>
+</head>
+<body>
+<header><h1>HINA FAN ART GALLERY</h1></header>
+
+<div class="toolbar" id="toolbar">
+  <button class="sort-btn" data-sort="likes">MOST LIKED</button>
+  <button class="sort-btn" data-sort="new">NEWEST</button>
+  <button class="sort-btn" data-sort="old">OLDEST</button>
+</div>
+
+<main class="grid" id="grid"></main>
+
+<div class="lightbox" id="lightbox">
+  <button class="lb-btn lb-close" id="lbClose" aria-label="閉じる">&#215;</button>
+  <button class="lb-btn lb-prev" id="lbPrev" aria-label="前へ">&#8592;</button>
+  <button class="lb-btn lb-next" id="lbNext" aria-label="次へ">&#8594;</button>
+  <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
+  <div class="lb-caption">
+    <span id="lbTitle"></span>
+    <button class="like" id="lbLike"></button>
+  </div>
+</div>
+
+<script>
+  const DATA = <?!= initialDataJson ?>;
+
+  // ---------- state ----------
+  const state = {
+    items: DATA.items || [],
+    likes: DATA.likes || {},
+    sort: 'likes', // デフォルトは LIKE 多い順
+    current: -1,   // ライトボックスで表示中の lbItems index
+    lbItems: [],   // ライトボックスを開いた時点の並び順スナップショット
+                   // (表示中に LIKE して並びが変わっても前後移動が破綻しないように固定する)
+  };
+
+  const respondentId = (() => {
+    let id = localStorage.getItem('hinaGalleryRid');
+    if (!id) {
+      id = 'r-' + Array.from(crypto.getRandomValues(new Uint8Array(12)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('hinaGalleryRid', id);
+    }
+    return id;
+  })();
+
+  const likedSet = new Set(JSON.parse(localStorage.getItem('hinaGalleryLiked') || '[]'));
+  const saveLiked = () => localStorage.setItem('hinaGalleryLiked', JSON.stringify([...likedSet]));
+
+  // ---------- helpers ----------
+  // 表示名: 区切り文字(-, _)をスペースに置き換える(ギャラリー表示上のみ)
+  const displayName = name => name.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const likeCount = id => (state.likes[id] || 0);
+  const thumbUrl = id => 'https://lh3.googleusercontent.com/d/' + id + '=w800';
+  const fullUrl = id => 'https://lh3.googleusercontent.com/d/' + id + '=s2048';
+  const fallbackUrl = (id, w) => 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w;
+
+  function sortedItems() {
+    const items = [...state.items];
+    if (state.sort === 'likes') {
+      items.sort((a, b) => likeCount(b.id) - likeCount(a.id) || b.created - a.created);
+    } else if (state.sort === 'new') {
+      items.sort((a, b) => b.created - a.created);
+    } else {
+      items.sort((a, b) => a.created - b.created);
+    }
+    return items;
+  }
+
+  function toggleLike(id) {
+    const wasLiked = likedSet.has(id);
+    const action = wasLiked ? 'remove' : 'add';
+    if (wasLiked) likedSet.delete(id); else likedSet.add(id);
+    saveLiked();
+    state.likes[id] = Math.max(0, likeCount(id) + (wasLiked ? -1 : 1));
+    if (typeof google !== 'undefined' && google.script) {
+      google.script.run
+        .withFailureHandler(err => console.error('submitLike failed', err))
+        .submitLike(id, respondentId, action);
+    }
+    render();
+    if (state.current >= 0) updateLightboxCaption();
+  }
+
+  const likeLabel = id =>
+    (likedSet.has(id) ? '&#9829;' : '&#9825;') + ' <span class="count">' + likeCount(id) + '</span>';
+
+  // ---------- grid ----------
+  const grid = document.getElementById('grid');
+
+  function render() {
+    document.querySelectorAll('.sort-btn').forEach(btn =>
+      btn.classList.toggle('active', btn.dataset.sort === state.sort));
+
+    const items = sortedItems();
+    grid.innerHTML = '';
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'NO IMAGES';
+      grid.appendChild(empty);
+      return;
+    }
+    items.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const img = document.createElement('img');
+      img.className = 'thumb';
+      img.loading = 'lazy';
+      img.alt = displayName(item.name);
+      img.src = thumbUrl(item.id);
+      img.onerror = () => { img.onerror = null; img.src = fallbackUrl(item.id, 800); };
+      img.addEventListener('click', () => openLightbox(index));
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = displayName(item.name);
+
+      const like = document.createElement('button');
+      like.className = 'like';
+      like.innerHTML = likeLabel(item.id);
+      like.addEventListener('click', () => toggleLike(item.id));
+
+      card.append(img, title, like);
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('toolbar').addEventListener('click', e => {
+    const btn = e.target.closest('.sort-btn');
+    if (!btn) return;
+    state.sort = btn.dataset.sort;
+    render();
+  });
+
+  // ---------- lightbox ----------
+  const lightbox = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  const lbTitle = document.getElementById('lbTitle');
+  const lbLike = document.getElementById('lbLike');
+
+  function openLightbox(index) {
+    state.lbItems = sortedItems();
+    state.current = index;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    showCurrent();
+  }
+  function closeLightbox() {
+    state.current = -1;
+    state.lbItems = [];
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function step(delta) {
+    const items = state.lbItems;
+    if (!items.length) return;
+    state.current = (state.current + delta + items.length) % items.length;
+    showCurrent();
+  }
+  function showCurrent() {
+    const item = state.lbItems[state.current];
+    if (!item) return;
+    lbImg.src = fullUrl(item.id);
+    lbImg.onerror = () => { lbImg.onerror = null; lbImg.src = fallbackUrl(item.id, 2048); };
+    lbImg.alt = displayName(item.name);
+    updateLightboxCaption();
+  }
+  function updateLightboxCaption() {
+    const item = state.lbItems[state.current];
+    if (!item) return;
+    lbTitle.textContent = displayName(item.name);
+    lbLike.innerHTML = likeLabel(item.id);
+    lbLike.onclick = () => toggleLike(item.id);
+  }
+
+  document.getElementById('lbClose').addEventListener('click', closeLightbox);
+  document.getElementById('lbPrev').addEventListener('click', () => step(-1));
+  document.getElementById('lbNext').addEventListener('click', () => step(1));
+  lightbox.addEventListener('click', e => {
+    if (e.target === lightbox || e.target.id === 'lbStage') closeLightbox();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (state.current < 0) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') step(-1);
+    else if (e.key === 'ArrowRight') step(1);
+  });
+
+  // マウスホイールで前後の画像へ(連続発火を抑制)
+  let wheelLock = 0;
+  lightbox.addEventListener('wheel', e => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - wheelLock < 350) return;
+    wheelLock = now;
+    step(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+
+  // スワイプで前後の画像へ
+  let touchX = null, touchY = null;
+  lightbox.addEventListener('touchstart', e => {
+    touchX = e.touches[0].clientX;
+    touchY = e.touches[0].clientY;
+  }, { passive: true });
+  lightbox.addEventListener('touchend', e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    const dy = e.changedTouches[0].clientY - touchY;
+    touchX = touchY = null;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  render();
+</script>
+</body>
+</html>

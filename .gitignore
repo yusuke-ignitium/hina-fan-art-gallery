@@ -1,0 +1,6 @@
+# clasp 認証情報・プロジェクト紐付け(各自の環境で clasp login / create-script する)
+.clasp.json
+.clasprc.json
+
+node_modules/
+.preview/
