@@ -105,6 +105,56 @@
     color: #999;
   }
 
+  /* ---------- post view (#post) ---------- */
+  .post-view {
+    display: none;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 10px 24px 100px;
+    font-size: 13px;
+    line-height: 2.1;
+    letter-spacing: 0.06em;
+  }
+  body.post .grid, body.post .toolbar { display: none; }
+  body.post .post-view { display: block; animation: viewFade 0.25s ease; }
+  @keyframes viewFade { from { opacity: 0; } to { opacity: 1; } }
+  .post-view p { margin-bottom: 1.4em; }
+  .post-view h2 {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    margin: 3.2em 0 1.2em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #000;
+  }
+  .post-view ol { padding-left: 1.6em; }
+  .post-view ol li { margin-bottom: 0.9em; }
+  .post-view a { color: #000; }
+  .post-view .note { font-size: 11px; color: #999; line-height: 1.9; }
+  .post-view .back {
+    display: block;
+    text-align: center;
+    margin-bottom: 34px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #999;
+    text-decoration: none;
+  }
+  .post-view .repo-btn {
+    display: inline-block;
+    margin: 8px 0 4px;
+    padding: 12px 28px;
+    border: 1px solid #000;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-decoration: none;
+  }
+  .post-view code {
+    font-family: inherit;
+    background: #f4f4f4;
+    padding: 1px 6px;
+  }
+
   /* ---------- lightbox ---------- */
   .lightbox {
     position: fixed;
@@ -172,10 +222,48 @@
     <button class="sort-btn" data-sort="new">NEWEST</button>
     <button class="sort-btn" data-sort="old">OLDEST</button>
   </div>
-  <a class="submit-link" href="submit.html">SUBMIT</a>
+  <a class="submit-link" href="#post">POST</a>
 </div>
 
 <main class="grid" id="grid"></main>
+
+<section class="post-view">
+  <a class="back" href="#">&#8592; GALLERY</a>
+  <p>
+    このギャラリーへの作品追加は GitHub の「プルリクエスト」という仕組みで受け付けています。
+    送ってもらった作品は管理人が確認し、OK なら掲載されます。
+    はじめてでも下の手順どおりに進めば 10 分ほどで完了します。
+  </p>
+
+  <h2>STEP 1 — GITHUB アカウントを作る</h2>
+  <p class="note">すでにアカウントを持っている場合は STEP 2 へ。</p>
+  <ol>
+    <li><a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a> を開く</li>
+    <li>メールアドレス、パスワード、ユーザー名を入力する<br>
+      <span class="note">※ ユーザー名は公開されます。掲載時に作品のクレジット「by ユーザー名」として表示されるので、見られてもよい名前にしてください</span></li>
+    <li>メールに届いた確認コードを入力すれば完了</li>
+  </ol>
+
+  <h2>STEP 2 — 作品を投稿する</h2>
+  <ol>
+    <li>下のボタンからギャラリーのリポジトリ(作品置き場)を開く<br>
+      <a class="repo-btn" href="https://github.com/yusuke-ignitium/hina-fan-art-gallery" target="_blank" rel="noopener">OPEN REPOSITORY</a></li>
+    <li>右上の <code>Fork</code> ボタンを押し、次の画面で <code>Create fork</code> を押す<br>
+      <span class="note">※ 自分専用のコピーが作られます。元のギャラリーには影響しません</span></li>
+    <li>コピーされたページで <code>images</code> フォルダを開く</li>
+    <li><code>Add file</code> → <code>Upload files</code> を押して、画像をドラッグ&ドロップ<br>
+      <span class="note">※ ファイル名がそのまま作品タイトルになります。例: <code>night-walk.png</code> →「night walk」(<code>-</code> や <code>_</code> はスペースとして表示)</span></li>
+    <li><code>Commit changes</code> を押す</li>
+    <li>ページ上部に戻り <code>Contribute</code> → <code>Open pull request</code> → <code>Create pull request</code> を押す</li>
+  </ol>
+  <p>
+    これで投稿完了です。管理人が内容を確認して取り込むと、ギャラリーに自動で反映されます。
+  </p>
+  <p class="note">
+    ・掲載までは少し時間がかかることがあります<br>
+    ・公序良俗に反する画像、他者の作品の無断転載はお断りします
+  </p>
+</section>
 
 <div class="lightbox" id="lightbox">
   <button class="lb-btn lb-close" id="lbClose" aria-label="閉じる">&#215;</button>
@@ -361,6 +449,14 @@
     touchX = touchY = null;
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
   }, { passive: true });
+
+  // ---------- routing (#post = 投稿ガイドビュー) ----------
+  function applyRoute() {
+    document.body.classList.toggle('post', location.hash === '#post');
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', applyRoute);
+  applyRoute();
 
   // ---------- init ----------
   fetch('images.json')
