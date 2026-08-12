@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "preview",
+      "name": "site",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["-y", "http-server", ".preview", "-p", "8791", "-c-1"],
-      "port": 8791
+      "runtimeArgs": ["-y", "http-server", ".", "-p", "8792", "-c-1"],
+      "port": 8792
     }
   ]
 }

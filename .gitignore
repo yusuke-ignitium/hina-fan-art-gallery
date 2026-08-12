@@ -4,3 +4,6 @@
 
 node_modules/
 .preview/
+
+# デプロイ時に GitHub Actions が生成(ローカル確認時は node tools/build-manifest.mjs)
+images.json

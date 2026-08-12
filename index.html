@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HINA FAN ART GALLERY</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -78,18 +79,6 @@
     line-height: 1.7;
     overflow-wrap: anywhere;
   }
-  .card .like {
-    margin-top: 6px;
-    background: none;
-    border: none;
-    font: inherit;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    color: #000;
-    cursor: pointer;
-    padding: 4px 8px;
-  }
-  .card .like .heart { font-size: 13px; }
   .empty {
     text-align: center;
     padding: 120px 20px;
@@ -130,7 +119,6 @@
     font-size: 11px;
     letter-spacing: 0.16em;
   }
-  .lb-caption .like { margin-left: 14px; cursor: pointer; background: none; border: none; font: inherit; }
   .lb-btn {
     position: absolute;
     background: none;
@@ -155,7 +143,6 @@
 <header><h1>HINA FAN ART GALLERY</h1></header>
 
 <div class="toolbar" id="toolbar">
-  <button class="sort-btn" data-sort="likes">MOST LIKED</button>
   <button class="sort-btn" data-sort="new">NEWEST</button>
   <button class="sort-btn" data-sort="old">OLDEST</button>
 </div>
@@ -167,75 +154,33 @@
   <button class="lb-btn lb-prev" id="lbPrev" aria-label="前へ">&#8592;</button>
   <button class="lb-btn lb-next" id="lbNext" aria-label="次へ">&#8594;</button>
   <div class="lb-stage" id="lbStage"><img id="lbImg" alt=""></div>
-  <div class="lb-caption">
-    <span id="lbTitle"></span>
-    <button class="like" id="lbLike"></button>
-  </div>
+  <div class="lb-caption"><span id="lbTitle"></span></div>
 </div>
 
 <script>
-  const DATA = <?!= initialDataJson ?>;
-
   // ---------- state ----------
   const state = {
-    items: DATA.items || [],
-    likes: DATA.likes || {},
-    sort: 'likes', // デフォルトは LIKE 多い順
+    items: [],     // images.json: [{file, created}]
+    sort: 'new',   // デフォルトは新しい順
     current: -1,   // ライトボックスで表示中の lbItems index
     lbItems: [],   // ライトボックスを開いた時点の並び順スナップショット
-                   // (表示中に LIKE して並びが変わっても前後移動が破綻しないように固定する)
   };
 
-  const respondentId = (() => {
-    let id = localStorage.getItem('hinaGalleryRid');
-    if (!id) {
-      id = 'r-' + Array.from(crypto.getRandomValues(new Uint8Array(12)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      localStorage.setItem('hinaGalleryRid', id);
-    }
-    return id;
-  })();
-
-  const likedSet = new Set(JSON.parse(localStorage.getItem('hinaGalleryLiked') || '[]'));
-  const saveLiked = () => localStorage.setItem('hinaGalleryLiked', JSON.stringify([...likedSet]));
-
   // ---------- helpers ----------
-  // 表示名: 区切り文字(-, _)をスペースに置き換える(ギャラリー表示上のみ)
-  const displayName = name => name.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const likeCount = id => (state.likes[id] || 0);
-  const thumbUrl = id => 'https://lh3.googleusercontent.com/d/' + id + '=w800';
-  const fullUrl = id => 'https://lh3.googleusercontent.com/d/' + id + '=s2048';
-  const fallbackUrl = (id, w) => 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + w;
+  // 表示名: 拡張子を除去し、区切り文字(-, _)をスペースに置き換える(表示上のみ)
+  const displayName = file => file
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const imageUrl = file => 'images/' + encodeURIComponent(file);
 
   function sortedItems() {
     const items = [...state.items];
-    if (state.sort === 'likes') {
-      items.sort((a, b) => likeCount(b.id) - likeCount(a.id) || b.created - a.created);
-    } else if (state.sort === 'new') {
-      items.sort((a, b) => b.created - a.created);
-    } else {
-      items.sort((a, b) => a.created - b.created);
-    }
+    if (state.sort === 'new') items.sort((a, b) => b.created - a.created);
+    else items.sort((a, b) => a.created - b.created);
     return items;
   }
-
-  function toggleLike(id) {
-    const wasLiked = likedSet.has(id);
-    const action = wasLiked ? 'remove' : 'add';
-    if (wasLiked) likedSet.delete(id); else likedSet.add(id);
-    saveLiked();
-    state.likes[id] = Math.max(0, likeCount(id) + (wasLiked ? -1 : 1));
-    if (typeof google !== 'undefined' && google.script) {
-      google.script.run
-        .withFailureHandler(err => console.error('submitLike failed', err))
-        .submitLike(id, respondentId, action);
-    }
-    render();
-    if (state.current >= 0) updateLightboxCaption();
-  }
-
-  const likeLabel = id =>
-    (likedSet.has(id) ? '&#9829;' : '&#9825;') + ' <span class="count">' + likeCount(id) + '</span>';
 
   // ---------- grid ----------
   const grid = document.getElementById('grid');
@@ -260,21 +205,15 @@
       const img = document.createElement('img');
       img.className = 'thumb';
       img.loading = 'lazy';
-      img.alt = displayName(item.name);
-      img.src = thumbUrl(item.id);
-      img.onerror = () => { img.onerror = null; img.src = fallbackUrl(item.id, 800); };
+      img.alt = displayName(item.file);
+      img.src = imageUrl(item.file);
       img.addEventListener('click', () => openLightbox(index));
 
       const title = document.createElement('div');
       title.className = 'title';
-      title.textContent = displayName(item.name);
+      title.textContent = displayName(item.file);
 
-      const like = document.createElement('button');
-      like.className = 'like';
-      like.innerHTML = likeLabel(item.id);
-      like.addEventListener('click', () => toggleLike(item.id));
-
-      card.append(img, title, like);
+      card.append(img, title);
       grid.appendChild(card);
     });
   }
@@ -290,7 +229,6 @@
   const lightbox = document.getElementById('lightbox');
   const lbImg = document.getElementById('lbImg');
   const lbTitle = document.getElementById('lbTitle');
-  const lbLike = document.getElementById('lbLike');
 
   function openLightbox(index) {
     state.lbItems = sortedItems();
@@ -314,17 +252,9 @@
   function showCurrent() {
     const item = state.lbItems[state.current];
     if (!item) return;
-    lbImg.src = fullUrl(item.id);
-    lbImg.onerror = () => { lbImg.onerror = null; lbImg.src = fallbackUrl(item.id, 2048); };
-    lbImg.alt = displayName(item.name);
-    updateLightboxCaption();
-  }
-  function updateLightboxCaption() {
-    const item = state.lbItems[state.current];
-    if (!item) return;
-    lbTitle.textContent = displayName(item.name);
-    lbLike.innerHTML = likeLabel(item.id);
-    lbLike.onclick = () => toggleLike(item.id);
+    lbImg.src = imageUrl(item.file);
+    lbImg.alt = displayName(item.file);
+    lbTitle.textContent = displayName(item.file);
   }
 
   document.getElementById('lbClose').addEventListener('click', closeLightbox);
@@ -365,7 +295,11 @@
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
   }, { passive: true });
 
-  render();
+  // ---------- init ----------
+  fetch('images.json')
+    .then(res => res.json())
+    .then(items => { state.items = items; render(); })
+    .catch(() => { state.items = []; render(); });
 </script>
 </body>
 </html>

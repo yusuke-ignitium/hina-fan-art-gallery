@@ -1,7 +1,0 @@
-{
-  "name": "hina-fan-art-gallery",
-  "private": true,
-  "scripts": {
-    "push": "clasp push -f"
-  }
-}

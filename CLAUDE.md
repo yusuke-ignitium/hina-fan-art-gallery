@@ -1,39 +1,37 @@
 # hina-fan-art-gallery
 
-Google Drive フォルダの画像を一覧表示するファンアートギャラリー。
-LIKE をスプレッドシートに記録し、LIKE 多い順(デフォルト)・新しい順・古い順で表示できる。
-アーキテクチャは kirinuki-survey 準拠。
+ファンアート画像の静的ギャラリーサイト。GitHub Pages でホスティング。
+サーバー・データストア・外部権限は一切なし(以前の GAS + Drive + スプシ構成は廃止済み)。
 
 ## 構成
 
-- **ホスティング**: Google Apps Script Web App(匿名アクセス可・オーナーとして実行)
-- **画像**: [Drive フォルダ](https://drive.google.com/drive/folders/1DxO5Q7rvJ0lJWuqxck_JonADy_rxdrU6)が原本。リポジトリにはコミットしない。doGet 時に DriveApp で一覧するため、画像の追加・削除は再デプロイ不要で反映される
-- **データストア**: Google Sheets(likes シート。1リアクション=1行: timestamp / fileId / respondentId / action)
-- **デプロイ**: clasp によるローカルデプロイ。各利用者が自分のGoogleアカウントで `clasp login` する(認証情報・`.clasp.json` はコミットしない)
+- **ホスティング**: GitHub Pages(GitHub Actions でデプロイ)
+- **画像**: `images/` にコミットされたファイルが原本。追加は PR(GitHub Web UI のアップロードでも可)
+- **一覧データ**: `images.json`。Actions がデプロイ時に `tools/build-manifest.mjs` で生成。
+  created は git に最初に追加されたコミット日時(未コミットファイルは mtime フォールバック)
 
 ```
-src/Code.gs      setup / doGet / submitLike / LIKE集計
-src/Index.html   ギャラリーUI(グリッド+ライトボックスカルーセル)
-tools/build-preview.mjs   モックデータ入り .preview/preview.html 生成(ローカルUI確認用)
+index.html                 ギャラリーUI(グリッド+ライトボックスカルーセル、依存なし)
+images/                    画像の原本
+tools/build-manifest.mjs   images.json 生成
+.github/workflows/pages.yml  Pages デプロイ
 ```
 
 ## コマンド
 
 ```powershell
-npm run push     # clasp push -f
-clasp update-deployment <デプロイID>   # WebアプリのURLを変えずに新バージョン反映
-node tools/build-preview.mjs   # ローカルUI確認用HTML生成(.claude/launch.json の preview で開く)
+node tools/build-manifest.mjs   # images.json 生成
+npx -y http-server . -p 8791    # ローカル確認(.claude/launch.json の preview でも可)
 ```
 
 ## 仕様メモ
 
-- タイトルはファイル名から拡張子を除去したもの。`-` / `_` → スペース置換は**表示時のみ**クライアントで行う(データ上は原本のまま)
-- 画像URLは `lh3.googleusercontent.com/d/<id>` を使用。フォルダが「リンクを知っている全員が閲覧可」であることが前提(setup() が設定する)
-- LIKE は localStorage の respondentId で匿名識別。集計は respondentId ユニーク・最終 action ベース
+- タイトルはファイル名から拡張子を除去したもの。`-` / `_` → スペース置換は**表示時のみ**クライアントで行う(ファイル名は原本のまま)
+- 並び順: 新しい順(デフォルト)/古い順。LIKE 機能は権限問題の議論の末に**意図的に削除**した(復活させる場合はスプシバインド + spreadsheets.currentonly の GAS を検討)
 - デザインは god-selection-xxx.com 参考のミニマル白背景・黒テキスト。ヘッダは「HINA FAN ART GALLERY」のテキストのみ(ヒーロー画像なし)
 
 ## ルール・注意
 
-- UI(`src/Index.html`)のデザイン変更はユーザーの明示的な指示がある場合のみ
-- `.clasprc.json` / `.clasp.json` は絶対にコミットしない(gitignore済み)
+- UI(`index.html`)のデザイン変更はユーザーの明示的な指示がある場合のみ
+- 画像の削除・リネームはしない(タイトルとURLが変わるため。必要ならユーザーに確認)
 - コミットは `/commit` スキルの構造化フォーマットに従う
